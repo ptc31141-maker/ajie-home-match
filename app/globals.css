@@ -1522,6 +1522,102 @@ nav {
   line-height: 1.5;
 }
 
+.mentor-rent-records {
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid #bfe0d2;
+  border-radius: 10px;
+  background: #f3fbf7;
+}
+
+.mentor-rent-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mentor-rent-heading h3,
+.mentor-rent-heading p {
+  margin: 0;
+}
+
+.mentor-rent-heading h3 {
+  color: #176a50;
+  font-size: 9px;
+}
+
+.mentor-rent-heading p,
+.mentor-rent-heading span {
+  margin-top: 3px;
+  color: #668078;
+  font-size: 7px;
+  line-height: 1.4;
+}
+
+.mentor-rent-heading span {
+  flex: 0 0 auto;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: #dff2e9;
+  color: #27745c;
+  font-weight: 700;
+}
+
+.mentor-rent-record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 9px;
+  padding: 8px 0;
+  border-top: 1px dashed #cbe3d8;
+}
+
+.mentor-rent-record > div {
+  min-width: 0;
+}
+
+.mentor-rent-record strong,
+.mentor-rent-record span {
+  display: block;
+}
+
+.mentor-rent-record strong {
+  color: #244b3e;
+  font-size: 9px;
+}
+
+.mentor-rent-record span {
+  margin-top: 2px;
+  color: #6c8079;
+  font-size: 7px;
+}
+
+.mentor-rent-record b {
+  color: #0f7656;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.mentor-rent-record p,
+.mentor-rent-record small {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.mentor-rent-record p {
+  color: #597169;
+}
+
+.mentor-rent-record small {
+  padding: 5px 6px;
+  border-radius: 5px;
+  background: #fff4e8;
+  color: #986137;
+}
+
 .rent-snapshots {
   margin-top: 11px;
   padding: 10px;
