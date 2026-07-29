@@ -5,9 +5,11 @@ import * as XLSX from "xlsx";
 import {
   lineColors,
   lineStops,
+  mentorRentRecords,
   publicRentSnapshots,
   stationCoverage,
   stationKnowledge,
+  type MentorRentRecord,
   type StationKnowledge,
 } from "./location-data";
 
@@ -61,6 +63,7 @@ type MapListing = {
   verification: StationKnowledge["verification"];
   source: string;
   researchedAt: string;
+  mentorRecords: MentorRentRecord[];
 };
 
 type MatchRecord = {
@@ -172,6 +175,14 @@ const sampleListings: Listing[] = [
 
 const demoListingTitles = new Set(sampleListings.map((listing) => listing.title));
 
+const mentorRecordsByProject = mentorRentRecords.reduce<
+  Record<string, MentorRentRecord[]>
+>((result, record) => {
+  const key = `${record.station}::${record.project}`;
+  result[key] = [...(result[key] ?? []), record];
+  return result;
+}, {});
+
 const mapListings: MapListing[] = stationKnowledge.flatMap((entry) => [
   ...entry.communities.map((title, index) => ({
     id: `${entry.id}-community-${index}-${title}`,
@@ -183,6 +194,7 @@ const mapListings: MapListing[] = stationKnowledge.flatMap((entry) => [
     verification: entry.verification,
     source: entry.source,
     researchedAt: entry.researchedAt,
+    mentorRecords: mentorRecordsByProject[`${entry.station}::${title}`] ?? [],
   })),
   ...entry.apartments.map((title, index) => ({
     id: `${entry.id}-apartment-${index}-${title}`,
@@ -194,6 +206,7 @@ const mapListings: MapListing[] = stationKnowledge.flatMap((entry) => [
     verification: entry.verification,
     source: entry.source,
     researchedAt: entry.researchedAt,
+    mentorRecords: mentorRecordsByProject[`${entry.station}::${title}`] ?? [],
   })),
 ]);
 
@@ -682,17 +695,47 @@ function scoreMapListing(listing: MapListing, need: Need) {
   const stationScore = scoreStation(entry, need);
   const typeReason =
     listing.kind === "公寓 / 商住" ? "公寓候选" : "小区候选";
+  const mentorMin =
+    listing.mentorRecords.length > 0
+      ? Math.min(...listing.mentorRecords.map((record) => record.min))
+      : null;
+  const mentorMax =
+    listing.mentorRecords.length > 0
+      ? Math.max(...listing.mentorRecords.map((record) => record.max))
+      : null;
+  let mentorScore = 0;
+  const reasons = [...stationScore.reasons, typeReason];
+  if (mentorMin !== null && mentorMax !== null) {
+    const overlaps = mentorMin <= need.budgetMax && mentorMax >= need.budgetMin;
+    if (overlaps) {
+      mentorScore = 18;
+      reasons.push("师傅价符合预算");
+    } else {
+      const gap =
+        mentorMin > need.budgetMax
+          ? mentorMin - need.budgetMax
+          : need.budgetMin - mentorMax;
+      mentorScore = Math.max(-12, 12 - Math.ceil(gap / 100) * 3);
+      reasons.push("师傅价需调整预算");
+    }
+  }
   return {
     listing,
-    score: stationScore.score,
-    reasons: [...stationScore.reasons, typeReason],
+    score: Math.max(0, Math.min(100, stationScore.score + mentorScore)),
+    reasons,
   };
 }
 
-function formatKnowledgePrice(entry: StationKnowledge) {
-  return entry.price
-    ? `¥${entry.price.min}–${entry.price.max}`
-    : "价格待补";
+function formatKnowledgePrice(
+  entry: StationKnowledge,
+  mentorRecords: MentorRentRecord[],
+) {
+  if (mentorRecords.length > 0) {
+    const min = Math.min(...mentorRecords.map((record) => record.min));
+    const max = Math.max(...mentorRecords.map((record) => record.max));
+    return `¥${min}–${max}`;
+  }
+  return entry.price ? `¥${entry.price.min}–${entry.price.max}` : "价格待补";
 }
 
 function buildMapSearchUrl(station: string) {
@@ -899,6 +942,13 @@ export default function Home() {
         ...entry.communities,
         ...entry.apartments,
         ...entry.notes,
+        ...mentorRentRecords
+          .filter((record) => record.station === entry.station)
+          .flatMap((record) => [
+            record.project,
+            record.room,
+            ...record.details,
+          ]),
       ]
         .join(" ")
         .toLowerCase()
@@ -914,6 +964,20 @@ export default function Home() {
           result[snapshot.station] = [
             ...(result[snapshot.station] ?? []),
             snapshot,
+          ];
+          return result;
+        },
+        {},
+      ),
+    [],
+  );
+  const mentorRecordsByStation = useMemo(
+    () =>
+      mentorRentRecords.reduce<Record<string, MentorRentRecord[]>>(
+        (result, record) => {
+          result[record.station] = [
+            ...(result[record.station] ?? []),
+            record,
           ];
           return result;
         },
@@ -1106,15 +1170,27 @@ export default function Home() {
       地铁站: listing.station,
       地铁线: listing.lines.join("、"),
       区域: listing.district,
-      租金: "",
-      房型: "",
+      租金:
+        listing.mentorRecords.length > 0
+          ? `${Math.min(...listing.mentorRecords.map((record) => record.min))}-${Math.max(...listing.mentorRecords.map((record) => record.max))}`
+          : "",
+      房型: listing.mentorRecords.map((record) => record.room).join("；"),
       地铁距离: "",
-      水电性质: "",
+      水电性质: listing.mentorRecords
+        .flatMap((record) => record.details)
+        .find((detail) => detail.includes("水") && detail.includes("电")) ?? "",
       额外费用: "",
-      房源状态: "待核价",
-      核验状态: listing.verification,
+      房源状态:
+        listing.mentorRecords.length > 0 ? "师傅经验库" : "待核价",
+      核验状态:
+        listing.mentorRecords.length > 0 ? "师傅已核对" : listing.verification,
       来源: listing.source,
-      调研日期: listing.researchedAt,
+      经验备注: listing.mentorRecords
+        .flatMap((record) => [...record.details, record.warning ?? ""])
+        .filter(Boolean)
+        .join("；"),
+      调研日期:
+        listing.mentorRecords[0]?.observedAt ?? listing.researchedAt,
     }));
     const sheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
@@ -2173,6 +2249,8 @@ export default function Home() {
             <div className="knowledge-grid">
               {visibleKnowledge.map((entry) => {
                 const snapshots = publicSnapshotsByStation[entry.station] ?? [];
+                const mentorRecords =
+                  mentorRecordsByStation[entry.station] ?? [];
                 return (
                 <article className="knowledge-card" key={entry.id}>
                   <div className="knowledge-card-head">
@@ -2207,9 +2285,13 @@ export default function Home() {
 
                   <div className="knowledge-price">
                     <span>你的实地参考价</span>
-                    <strong>{formatKnowledgePrice(entry)}</strong>
+                    <strong>
+                      {formatKnowledgePrice(entry, mentorRecords)}
+                    </strong>
                     <small>
-                      {entry.price
+                      {mentorRecords.length > 0
+                        ? `${mentorRecords.length}条师傅经验记录 · 单人居住口径`
+                        : entry.price
                         ? entry.price.label
                         : "等待你补充单间 / 整租 / 公寓价格"}
                     </small>
@@ -2247,6 +2329,37 @@ export default function Home() {
                       <p key={note}>✓ {note}</p>
                     ))}
                   </div>
+                  {mentorRecords.length > 0 && (
+                    <div className="mentor-rent-records">
+                      <div className="mentor-rent-heading">
+                        <div>
+                          <h3>师傅经验价 · 单人居住</h3>
+                          <p>隔断单间、小一居或公寓；不是整租套房价</p>
+                        </div>
+                        <span>更新 2026-07-29</span>
+                      </div>
+                      {mentorRecords.map((record, index) => (
+                        <div
+                          className="mentor-rent-record"
+                          key={`${record.project}-${record.room}-${index}`}
+                        >
+                          <div>
+                            <strong>{record.project}</strong>
+                            <span>{record.room}</span>
+                          </div>
+                          <b>
+                            ¥{record.min}
+                            {record.max !== record.min
+                              ? `–${record.max}`
+                              : ""}
+                            /月
+                          </b>
+                          <p>{record.details.join(" · ")}</p>
+                          {record.warning && <small>{record.warning}</small>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {snapshots.length > 0 && (
                     <div className="rent-snapshots">
                       <h3>公开挂牌快照（不等于参考价）</h3>
@@ -2509,7 +2622,26 @@ export default function Home() {
                           >
                             {listing.kind}
                           </span>
-                          <b>价格待补</b>
+                          <b>
+                            {listing.mentorRecords.length > 0
+                              ? `¥${Math.min(
+                                  ...listing.mentorRecords.map(
+                                    (record) => record.min,
+                                  ),
+                                )}–${Math.max(
+                                  ...listing.mentorRecords.map(
+                                    (record) => record.max,
+                                  ),
+                                )}`
+                              : "价格待补"}
+                          </b>
+                          {listing.mentorRecords.length > 0 && (
+                            <small>
+                              {listing.mentorRecords
+                                .map((record) => record.room)
+                                .join(" / ")}
+                            </small>
+                          )}
                         </div>
                         <div>
                           <strong>{listing.lines.join(" / ")}</strong>
@@ -2525,9 +2657,14 @@ export default function Home() {
                                   : ""
                             }`}
                           >
-                            {listing.verification}
+                            {listing.mentorRecords.length > 0
+                              ? "师傅已核对"
+                              : listing.verification}
                           </span>
-                          <small>{listing.researchedAt}</small>
+                          <small>
+                            {listing.mentorRecords[0]?.observedAt ??
+                              listing.researchedAt}
+                          </small>
                         </div>
                         <button
                           className="text-button"
