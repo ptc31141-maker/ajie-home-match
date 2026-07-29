@@ -368,16 +368,6 @@ export const mentorRentRecords: MentorRentRecord[] = [
     observedAt: "2026-07-29",
   },
   {
-    station: "建设三路",
-    project: "大成名座",
-    room: "单人居住单间",
-    min: 2500,
-    max: 3200,
-    details: ["房间不小但价格偏高", "翻新房通常更贵"],
-    observedAt: "2026-07-29",
-    warning: "原录音没有给出明确上下限，本区间为口述相对价的暂记带，带看前复核。",
-  },
-  {
     station: "建设一路",
     project: "华润中心",
     room: "公寓 / 单人居住",
@@ -428,8 +418,8 @@ export const mentorRentRecords: MentorRentRecord[] = [
     project: "江南学府",
     room: "商品房单间",
     min: 2500,
-    max: 3000,
-    details: ["房源较少", "通常2500元起"],
+    max: 2500,
+    details: ["房源较少", "2500元起步", "具体上限昨天未问"],
     observedAt: "2026-07-29",
   },
   {
