@@ -728,7 +728,7 @@ function scoreMapListing(listing: MapListing, need: Need) {
 
 function formatKnowledgePrice(
   entry: StationKnowledge,
-  mentorRecords: MentorRentRecord[],
+  mentorRecords: MentorRentRecord[] = [],
 ) {
   if (mentorRecords.length > 0) {
     const min = Math.min(...mentorRecords.map((record) => record.min));
@@ -1987,7 +1987,12 @@ export default function Home() {
                       .join(" · ") || "楼盘待随真实房源补充"}
                   </p>
                   <div className="station-recommendation-meta">
-                    <b>{formatKnowledgePrice(entry)}</b>
+                    <b>
+                      {formatKnowledgePrice(
+                        entry,
+                        mentorRecordsByStation[entry.station] ?? [],
+                      )}
+                    </b>
                     <span>{reasons.slice(0, 2).join(" · ")}</span>
                   </div>
                 </article>
